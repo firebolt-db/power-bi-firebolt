@@ -486,7 +486,7 @@ SQL_CVT =
         AUTOCOMMIT = 102,
         TXN_ISOLATION = 108,
         CURRENT_CATALOG = 109,
-        LOGIN_TIMEOUT = 103,
+        LOGIN_TIMEOUT = 0,
         QUERY_TIMEOUT = 0,
         CONNECTION_DEAD = 1209,
 
