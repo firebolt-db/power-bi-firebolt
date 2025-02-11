@@ -1,0 +1,26 @@
+# Ignore Power Query project build output
+bin/
+obj/
+
+# Ignore user-specific files
+*.user
+*.suo
+
+# Ignore temporary files
+*.tmp
+*.log
+*.bak
+*.swp
+
+# Ignore Visual Studio Code settings
+.vscode/
+
+# Ignore node_modules folder
+node_modules/
+
+# Ignore package-lock.json
+package-lock.json
+
+# Ignore tests for now
+tests/Diagnostics/*
+tests/RunPQSDKTestSuitesSettings.json
