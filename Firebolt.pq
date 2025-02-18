@@ -185,6 +185,8 @@ FireboltImpl = (account as text, engine as text, database as text, optional env 
                 TolerateConcatOverflow = true,
                 // Enables connection pooling via the system ODBC manager
                 ClientConnectionPooling = true,
+                // No timeout for setting up the connection
+                ConnectionTimeout = #duration(0, 0, 0, 0),
                 // These values should be set by previous steps
                 CredentialConnectionString = CredentialConnectionString,
                 SqlCapabilities = SqlCapabilities,
