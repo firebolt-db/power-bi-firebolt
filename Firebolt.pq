@@ -23,6 +23,7 @@ Config_UseParameterBindings = false;
 Config_StringLiteralEscapeCharacters  = { "'" }; // ex. { "'" } or { {"\", "\\"}, {"'", "\'"} }
 Config_UseCastInsteadOfConvert = true;
 Config_EnableDirectQuery = true;
+Config_Timeout = 3600; // 1 hour
 
 
 [DataSource.Kind="Firebolt", Publish="Firebolt.Publish"]
@@ -63,12 +64,12 @@ FireboltImpl = (account as text, engine as text, database as text, optional env 
     let
         ConnectionString = [
             Driver = Config_DriverName,
-            // Server = Server,
             Env = env,
             Account = account,
             Engine = engine,
             Database = database,
-            DriverLogFile = logfile
+            DriverLogFile = logfile,
+            Timeout = Config_Timeout
         ],
         defaultConfig = Diagnostics.LogValue("BuildOdbcConfig", BuildOdbcConfig()),
         
@@ -135,14 +136,43 @@ FireboltImpl = (account as text, engine as text, database as text, optional env 
                 OdbcSqlType.INT8 = 250,
                 OdbcSqlType.SQL_BIGINT = -5,
                 OdbcSqlType.INT64 = 251,
+                OdbcSqlType.FLOAT = 6,
+                OdbcSqlType.FLOAT8 = 701,
+                OdbcSqlType.DOUBLE = 8,
+                OdbcSqlType.REAL = 7,
+                OdbcSqlType.TEXT = -1,
+                OdbcSqlType.SQL_NUMERIC = 2,
+                OdbcSqlType.SQL_VARCHAR = 12,
+                OdbcSqlType.SQL_WVARCHAR = -9,
+                OdbcSqlType.FLOAT64 = 700,
+                OdbcSqlType.NULL = 0,
+                OdbcSqlType.UNKNOWN = 9999,
+                OdbcSqlType.SQL_CHAR = 1,
+                OdbcSqlType.SQL_DECIMAL = 3,
+                OdbcSqlType.SQL_INTEGER = 4,
+                OdbcSqlType.SQL_SMALLINT = 5,
+                OdbcSqlType.SQL_FLOAT = 6,
+                OdbcSqlType.SQL_REAL = 7,
+                OdbcSqlType.SQL_DOUBLE = 8,
+                OdbcSqlType.SQL_DATE = 9,
+                OdbcSqlType.SQL_TIME = 10,
+                OdbcSqlType.SQL_TIMESTAMP = 11,
+                OdbcSqlType.SQL_LONGVARCHAR = -1,
+                OdbcSqlType.SQL_BINARY = -2,
+                OdbcSqlType.SQL_VARBINARY = -3,
+                OdbcSqlType.SQL_LONGVARBINARY = -4,
+                OdbcSqlType.SQL_BIT = -7,
+                OdbcSqlType.SQL_WCHAR = -8,
+                OdbcSqlType.SQL_WLONGVARCHAR = -10,
+                OdbcSqlType.SQL_GUID = -11,
+                
                 FixDataType = (dataType) =>
-                    if dataType = OdbcSqlType.BOOLEAN then
+                    if dataType = "12" then // Boolean
                         OdbcSqlType.BIT
-                    else if dataType = OdbcSqlType.INT8 then
-                        OdbcSqlType.SQL_TINYINT                            
-                    else if dataType = OdbcSqlType.INT64 then
-                        OdbcSqlType.SQL_BIGINT
+                    else if dataType = "-1" then // Text
+                        OdbcSqlType.DOUBLE
                     else
+                        // Diagnostics.CorrelationId("SQLColumns.DataType", dataType),
                         dataType,
                 // Not sure if this is needed
                 FixDataTypeName = (dataTypeName) =>
@@ -150,8 +180,9 @@ FireboltImpl = (account as text, engine as text, database as text, optional env 
                         "SQL_WVARCHAR"
                     else
                         dataTypeName,
-                Transform = Table.TransformColumns(source, {{"data_type", FixDataType}
-//                     , {"TYPE_NAME", FixDataTypeName}
+                Transform = Table.TransformColumns(source, {
+                    {"data_type", FixDataType}
+                    //,  {"type_name", FixDataTypeName}
                 })
            in
                 if (EnableTraceOutput <> true) then
@@ -186,13 +217,14 @@ FireboltImpl = (account as text, engine as text, database as text, optional env 
                 // Enables connection pooling via the system ODBC manager
                 ClientConnectionPooling = true,
                 // No timeout for setting up the connection
-                ConnectionTimeout = #duration(0, 0, 0, 0),
+                ConnectionTimeout = #duration(0, 0, 0, Config_Timeout),
+                // No timeout for executing a query
+                CommandTimeout = #duration(0, 0, 0, Config_Timeout),
                 // These values should be set by previous steps
                 CredentialConnectionString = CredentialConnectionString,
                 SqlCapabilities = SqlCapabilities,
                 SQLColumns = SQLColumns,
                 SQLGetInfo = SQLGetInfo,
-                
                 SQLGetTypeInfo = SQLGetTypeInfo
             ]
         )
