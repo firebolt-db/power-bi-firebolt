@@ -167,18 +167,10 @@ FireboltImpl = (account as text, engine as text, database as text, optional env 
                 OdbcSqlType.SQL_GUID = -11,
                 
                 FixDataType = (dataType) =>
-                    if dataType = "12" then // Boolean
-                        OdbcSqlType.BIT
-                    else if dataType = "-1" then // Text
-                        OdbcSqlType.DOUBLE
-                    else
                         // Diagnostics.CorrelationId("SQLColumns.DataType", dataType),
-                        dataType,
+                    dataType,
                 // Not sure if this is needed
                 FixDataTypeName = (dataTypeName) =>
-                    if dataTypeName = "TEXT" then
-                        "SQL_WVARCHAR"
-                    else
                         dataTypeName,
                 Transform = Table.TransformColumns(source, {
                     {"data_type", FixDataType}
@@ -215,7 +207,7 @@ FireboltImpl = (account as text, engine as text, database as text, optional env 
                 // Allow upconversion / resizing of numeric and string types
                 TolerateConcatOverflow = true,
                 // Enables connection pooling via the system ODBC manager
-                ClientConnectionPooling = true,
+                ClientConnectionPooling = false,
                 // No timeout for setting up the connection
                 ConnectionTimeout = #duration(0, 0, 0, Config_Timeout),
                 // No timeout for executing a query
