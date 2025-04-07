@@ -22,4 +22,5 @@ node_modules/
 package-lock.json
 
 # Ignore tests for now
-tests/
+tests/Diagnostics/*
+tests/RunPQSDKTestSuitesSettings.json

@@ -1,0 +1,5 @@
+{
+    "FailOnMissingOutputFile":  false,
+    "QueryFilePath":  "TestSuites/Sanity",
+    "ParameterQueryFilePath":  "connectorconfigs/Firebolt/parameterqueries/Firebolt.parameterquery.pq"
+}
