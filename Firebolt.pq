@@ -14,7 +14,7 @@ EnableTraceOutput = true;
  ****************************/
 // The name of your ODBC driver.
 //
-Config_DriverName = "ClickHouse ODBC Driver (ANSI)";
+Config_DriverName = "Firebolt ODBC Driver (ANSI)";
 
 Config_SqlConformance = ODBC[SQL_SC][SQL_SC_SQL92_FULL];
 Config_LimitClauseKind = LimitClauseKind.LimitOffset;
@@ -44,15 +44,6 @@ DatabaseType = type function (
         Documentation.FieldCaption = "Database",
         Documentation.FieldDescription = "Name of Firebolt database",
         Documentation.SampleValues = {"my-database"}  
-    ]),
-    optional env as (type text meta [
-        Documentation.FieldCaption = "Env",
-        Documentation.FieldDescription = "Environment name",
-        Documentation.SampleValues = {"Staging", "Production"}
-    ]),
-    optional logfile as (type text meta [
-        Documentation.FieldCaption = "Log File",
-        Documentation.FieldDescription = "Path to the log file"
     ]))
     as table meta [
         Documentation.Name = "Firebolt",
@@ -60,15 +51,14 @@ DatabaseType = type function (
         Documentation.Examples = {[]}
     ];
 
-FireboltImpl = (account as text, engine as text, database as text, optional env as text, optional logfile as text) as table =>
+FireboltImpl = (account as text, engine as text, database as text) as table =>
     let
         ConnectionString = [
             Driver = Config_DriverName,
-            Env = env,
+            // Env = "Staging", // uncomment to use staging environment
             Account = account,
             Engine = engine,
             Database = database,
-            DriverLogFile = logfile,
             Timeout = Config_Timeout
         ],
         defaultConfig = Diagnostics.LogValue("BuildOdbcConfig", BuildOdbcConfig()),
@@ -129,70 +119,23 @@ FireboltImpl = (account as text, engine as text, database as text, optional env 
         // For details of the format of the source table parameter, please see:
         // https://docs.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolumns-function
         SQLColumns = (catalogName, schemaName, tableName, columnName, source) =>
-            let
-                OdbcSqlType.BIT = -7,
-                OdbcSqlType.BOOLEAN = 249,
-                OdbcSqlType.SQL_TINYINT = -6,
-                OdbcSqlType.INT8 = 250,
-                OdbcSqlType.SQL_BIGINT = -5,
-                OdbcSqlType.INT64 = 251,
-                OdbcSqlType.FLOAT = 6,
-                OdbcSqlType.FLOAT8 = 701,
-                OdbcSqlType.DOUBLE = 8,
-                OdbcSqlType.REAL = 7,
-                OdbcSqlType.TEXT = -1,
-                OdbcSqlType.SQL_NUMERIC = 2,
-                OdbcSqlType.SQL_VARCHAR = 12,
-                OdbcSqlType.SQL_WVARCHAR = -9,
-                OdbcSqlType.FLOAT64 = 700,
-                OdbcSqlType.NULL = 0,
-                OdbcSqlType.UNKNOWN = 9999,
-                OdbcSqlType.SQL_CHAR = 1,
-                OdbcSqlType.SQL_DECIMAL = 3,
-                OdbcSqlType.SQL_INTEGER = 4,
-                OdbcSqlType.SQL_SMALLINT = 5,
-                OdbcSqlType.SQL_FLOAT = 6,
-                OdbcSqlType.SQL_REAL = 7,
-                OdbcSqlType.SQL_DOUBLE = 8,
-                OdbcSqlType.SQL_DATE = 9,
-                OdbcSqlType.SQL_TIME = 10,
-                OdbcSqlType.SQL_TIMESTAMP = 11,
-                OdbcSqlType.SQL_LONGVARCHAR = -1,
-                OdbcSqlType.SQL_BINARY = -2,
-                OdbcSqlType.SQL_VARBINARY = -3,
-                OdbcSqlType.SQL_LONGVARBINARY = -4,
-                OdbcSqlType.SQL_BIT = -7,
-                OdbcSqlType.SQL_WCHAR = -8,
-                OdbcSqlType.SQL_WLONGVARCHAR = -10,
-                OdbcSqlType.SQL_GUID = -11,
-                
-                FixDataType = (dataType) =>
-                        // Diagnostics.CorrelationId("SQLColumns.DataType", dataType),
-                    dataType,
-                // Not sure if this is needed
-                FixDataTypeName = (dataTypeName) =>
-                        dataTypeName,
-                Transform = Table.TransformColumns(source, {
-                    {"data_type", FixDataType}
-                    //,  {"type_name", FixDataTypeName}
-                })
-           in
-                if (EnableTraceOutput <> true) then
-                    Transform
-                else if (
-                    // the if statement conditions will force the values to evaluated/written to diagnostics
-                    Diagnostics.LogValue("SQLColumns.TableName", tableName) <> "***"
-                    and Diagnostics.LogValue("SQLColumns.ColumnName", columnName) <> "***"
-                ) then
-                    let
-                        // Outputting the entire table might be too large, and result in the value being truncated.
-                        // We can output a row at a time instead with Table.TransformRows()
-                        rows = Table.TransformRows(Transform, each Diagnostics.LogValue("SQLColumns", _)),
-                        toTable = Table.FromRecords(rows)
-                    in
-                        Value.ReplaceType(toTable, Value.Type(Transform))
-                else
-                    Transform,
+            if (EnableTraceOutput <> true) then
+                source
+            else
+            // the if statement conditions will force the values to evaluated/written to diagnostics
+            if (
+                Diagnostics.LogValue("SQLColumns.TableName", tableName) <> "***"
+                and Diagnostics.LogValue("SQLColumns.ColumnName", columnName) <> "***"
+            ) then
+                let
+                    // Outputting the entire table might be too large, and result in the value being truncated.
+                    // We can output a row at a time instead with Table.TransformRows()
+                    rows = Table.TransformRows(source, each Diagnostics.LogValue("SQLColumns", _)),
+                    toTable = Table.FromRecords(rows)
+                in
+                    Value.ReplaceType(toTable, Value.Type(source))
+            else
+                source,
         // Remove null fields from the ConnectionString
         ConnectionStringNoNulls = Record.SelectFields(
             ConnectionString, Table.SelectRows(Record.ToTable(ConnectionString), each [Value] <> null)[Name]
@@ -251,7 +194,7 @@ Firebolt = [
 
 // Data Source UI publishing description
 Firebolt.Publish = [
-    Beta = true,
+    Beta = false,
     Category = "Database",
     ButtonText = { Extension.LoadString("ButtonTitle"), Extension.LoadString("ButtonHelp") },
     LearnMoreUrl = "https://firebolt.io",
