@@ -6,7 +6,7 @@ on:
 
 jobs:
   setup:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: Checkout VSCode Power Query SDK
         uses: actions/checkout@v4
@@ -21,14 +21,17 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./vscode-powerquery-sdk
+        shell: powershell
         run: npm install
 
       - name: Build VSIX package
         working-directory: ./vscode-powerquery-sdk
+        shell: powershell
         run: npm run vsix
 
       - name: Install extension
         working-directory: ./vscode-powerquery-sdk
+        shell: powershell
         run: npm run code-install
 
       - name: Checkout Power BI Firebolt Connector
