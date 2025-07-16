@@ -1,0 +1,37 @@
+name: Power BI Connector Setup
+
+on:
+  workflow_dispatch:
+    # This ensures the workflow can only be triggered manually
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout VSCode Power Query SDK
+        uses: actions/checkout@v4
+        with:
+          repository: microsoft/vscode-powerquery-sdk
+          path: vscode-powerquery-sdk
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+
+      - name: Install dependencies
+        working-directory: ./vscode-powerquery-sdk
+        run: npm install
+
+      - name: Build VSIX package
+        working-directory: ./vscode-powerquery-sdk
+        run: npm run vsix
+
+      - name: Install extension
+        working-directory: ./vscode-powerquery-sdk
+        run: npm run code-install
+
+      - name: Checkout Power BI Firebolt Connector
+        uses: actions/checkout@v4
+        with:
+          path: power-bi-firebolt
