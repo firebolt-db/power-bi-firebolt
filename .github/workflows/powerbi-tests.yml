@@ -2,39 +2,224 @@ name: Power BI Connector Setup
 
 on:
   workflow_dispatch:
-    # This ensures the workflow can only be triggered manually
+    inputs:
+      account:
+        description: 'Firebolt Account'
+        required: true
+        default: 'developer'
+      engine:
+        description: 'Firebolt Engine'
+        required: true
+      database:
+        description: 'Firebolt Database'
+        required: true
+        default: 'pbi_test'
+
+env:
+  CONNECTOR_NAME: Firebolt.mez
+  QUERY_FILE: Firebolt.query.pq
+  SETTINGS_FILE: RunPQSDKTestSuitesSettings.json
 
 jobs:
-  setup:
+  build:
     runs-on: windows-latest
+    outputs:
+      artifact-name: ${{ steps.build.outputs.artifact-name }}
     steps:
-      - name: Checkout VSCode Power Query SDK
+      - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup PowerQuery SDK
+        id: setup-sdk
+        uses: ./.github/actions/download-powerquery-sdk
+
+      - name: Build Connector
+        id: build
+        uses: ./.github/actions/build-connector
         with:
-          repository: microsoft/vscode-powerquery-sdk
-          path: vscode-powerquery-sdk
+          sdk-path: ${{ steps.setup-sdk.outputs.sdk-path }}
+          artifact-name: firebolt-connector-${{ github.run_id }}
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '16'
-
-      - name: Install dependencies
-        working-directory: ./vscode-powerquery-sdk
-        shell: powershell
-        run: npm install
-
-      - name: Build VSIX package
-        working-directory: ./vscode-powerquery-sdk
-        shell: powershell
-        run: npm run vsix
-
-      - name: Install extension
-        working-directory: ./vscode-powerquery-sdk
-        shell: powershell
-        run: npm run code-install
-
-      - name: Checkout Power BI Firebolt Connector
+  test:
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Update Query Files with Dynamic Values
+        shell: powershell
+        run: |
+          # Update Firebolt.query.pq
+          $queryFile = "Firebolt.query.pq"
+          $content = Get-Content $queryFile -Raw
+          $content = $content -replace '\{\{ACCOUNT\}\}', '${{ github.event.inputs.account }}'
+          $content = $content -replace '\{\{ENGINE\}\}', '${{ github.event.inputs.engine }}'
+          $content = $content -replace '\{\{DATABASE\}\}', '${{ github.event.inputs.database }}'
+          $content | Set-Content $queryFile -NoNewline
+
+          # Update parameter query file
+          $paramQueryFile = "tests/ConnectorConfigs/Firebolt/ParameterQueries/Firebolt.parameterquery.pq"
+          $content = Get-Content $paramQueryFile -Raw
+          $content = $content -replace '\{\{ACCOUNT\}\}', '${{ github.event.inputs.account }}'
+          $content = $content -replace '\{\{ENGINE\}\}', '${{ github.event.inputs.engine }}'
+          $content = $content -replace '\{\{DATABASE\}\}', '${{ github.event.inputs.database }}'
+          $content | Set-Content $paramQueryFile -NoNewline
+
+          Write-Host "Updated query files with Account: ${{ github.event.inputs.account }}, Engine: ${{ github.event.inputs.engine }}, Database: ${{ github.event.inputs.database }}"
+
+      - name: Setup PowerQuery SDK
+        id: setup-sdk
+        uses: ./.github/actions/download-powerquery-sdk
+
+      - name: Download Connector Artifact
+        uses: actions/download-artifact@v4
         with:
-          path: power-bi-firebolt
+          name: ${{ needs.build.outputs.artifact-name }}
+          path: .
+
+      - name: Set Common Paths
+        id: paths
+        shell: powershell
+        run: |
+          $workspaceDir = "${{ github.workspace }}"
+          $testsDir = "$workspaceDir\tests"
+          $connectorPath = "$workspaceDir\$env:CONNECTOR_NAME"
+          $queryPath = "$workspaceDir\$env:QUERY_FILE"
+          $settingsPath = "$testsDir\ConnectorConfigs\Firebolt\Settings"
+
+          echo "workspace-dir=$workspaceDir" >> $env:GITHUB_OUTPUT
+          echo "tests-dir=$testsDir" >> $env:GITHUB_OUTPUT
+          echo "connector-path=$connectorPath" >> $env:GITHUB_OUTPUT
+          echo "query-path=$queryPath" >> $env:GITHUB_OUTPUT
+          echo "settings-path=$settingsPath" >> $env:GITHUB_OUTPUT
+
+      - name: Update Test Settings
+        shell: powershell
+        working-directory: tests
+        run: |
+          $settings = Get-Content $env:SETTINGS_FILE | ConvertFrom-Json
+          $settings.PQTestExePath = "${{ steps.setup-sdk.outputs.pqtest-path }}"
+          $settings.ExtensionPath = "${{ steps.paths.outputs.connector-path }}"
+          $settings.TestSettingsDirectoryPath = "${{ steps.paths.outputs.settings-path }}"
+          $settings | ConvertTo-Json -Depth 10 | Set-Content $env:SETTINGS_FILE
+
+      - name: Set Credentials
+        shell: powershell
+        env:
+          FIREBOLT_USERNAME: ${{ secrets.USERNAME }}
+          FIREBOLT_PASSWORD: ${{ secrets.PASSWORD }}
+        run: |
+          $pqTestPath = "${{ steps.setup-sdk.outputs.pqtest-path }}"
+          $connectorPath = "${{ steps.paths.outputs.connector-path }}"
+          $queryPath = "${{ steps.paths.outputs.query-path }}"
+
+          # Generate credential template and set credentials
+          $templateOutput = & $pqTestPath credential-template -e $connectorPath -q $queryPath
+          $credentialJson = $templateOutput -replace '\$\$USERNAME\$\$', $env:FIREBOLT_USERNAME -replace '\$\$PASSWORD\$\$', $env:FIREBOLT_PASSWORD
+          $credentialJson | & $pqTestPath set-credential -e $connectorPath -q $queryPath -p
+
+      - name: Setup ODBC Driver
+        shell: powershell
+        run: |
+          $headers = @{
+            "Authorization" = "Bearer ${{ secrets.ODBC_PAT }}"
+            "Accept" = "application/vnd.github.v3+json"
+          }
+
+          $downloadHeaders = @{
+            "Authorization" = "Bearer ${{ secrets.ODBC_PAT }}"
+            "Accept" = "application/octet-stream"
+          }
+
+          # Get latest release and download Windows 64-bit MSI
+          $response = Invoke-RestMethod -Uri "https://api.github.com/repos/firebolt-analytics/odbc/releases/latest" -Headers $headers
+          $asset = $response.assets | Where-Object { $_.name -match "firebolt-odbc-.*-win64\.msi" }
+
+          Invoke-WebRequest -Uri $asset.url -OutFile $asset.name -Headers $downloadHeaders
+
+          # Install silently
+          Start-Process -FilePath "msiexec.exe" -ArgumentList "/i", "`"$($asset.name)`"", "/quiet", "/norestart" -Wait -NoNewWindow
+
+      - name: Test Connection
+        shell: powershell
+        run: |
+          $pqTestPath = "${{ steps.setup-sdk.outputs.pqtest-path }}"
+          $connectorPath = "${{ steps.paths.outputs.connector-path }}"
+          $queryPath = "${{ steps.paths.outputs.query-path }}"
+
+          # Test connection and fail if it contains "Status": "Failure"
+          $output = & $pqTestPath test-connection -e $connectorPath -q $queryPath -p 2>&1
+          if ($output -match '"Status":\s*"Failure"') {
+            Write-Host "Connection test failed" -ForegroundColor Red
+            Write-Host $output -ForegroundColor Red
+            exit 1
+          }
+          Write-Host "Connection test succeeded"
+
+      - name: Run PowerQuery SDK Tests
+        shell: powershell
+        id: run-tests
+        timeout-minutes: 10
+        working-directory: tests
+        run: |
+          # Run the script and capture output
+          $output = .\RunPQSDKTestSuites.ps1 -TestSettingsList StandardSettings.json -y 2>&1 | Out-String
+          Write-Host "=== PowerQuery SDK Test Results ==="
+          Write-Host $output
+
+          # Save results for artifact
+          $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+          $outputFile = "test-results-$timestamp.txt"
+          $output | Out-File -FilePath $outputFile -Encoding UTF8
+          
+          # Save the output filename for the next step
+          echo "output-file=$outputFile" >> $env:GITHUB_OUTPUT
+
+      - name: Create Test Summary
+        shell: powershell
+        working-directory: tests
+        run: |
+          # Read the test output from the output file
+          $outputFile = "${{ steps.run-tests.outputs.output-file }}"
+          $output = Get-Content $outputFile -Raw
+          $lines = $output -split "`n"
+
+          # Find the test results table header and output everything after it
+          $tableStartIndex = -1
+          for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match "TestFolder\s+TestName\s+OutputStatus\s+TestStatus\s+Duration") {
+              $tableStartIndex = $i
+              break
+            }
+          }
+
+          # Create step summary with the results table
+          $stepSummary = ""
+          if ($tableStartIndex -gt -1) {
+            $stepSummary += "## PowerQuery SDK Test Results`n`n"
+            $stepSummary += "``````text`n"
+            
+            # Add everything from the table header onwards
+            for ($i = $tableStartIndex; $i -lt $lines.Count; $i++) {
+              $stepSummary += $lines[$i] + "`n"
+            }
+            
+            $stepSummary += "``````"
+          } else {
+            $stepSummary += "## PowerQuery SDK Test Results`n`n"
+            $stepSummary += "No test results table found in output.`n"
+          }
+
+          # Write to step summary
+          if ($stepSummary) {
+            $stepSummary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding UTF8
+          }
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: powerquery-test-results
+          path: tests/test-results-*.txt
+          retention-days: 10

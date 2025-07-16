@@ -177,10 +177,10 @@ Firebolt = [
     // to the specified data source function.
     TestConnection = (dataSourcePath) =>
         let
-            json = Json.Document(dataSourcePath), env = json[env], account = json[account], engine = json[engine], database = json[database]
+            json = Json.Document(dataSourcePath), account = json[account], engine = json[engine], database = json[database]
             // name of function parameter
         in
-            {"Firebolt.Contents", env, account, engine, database},
+            {"Firebolt.Contents", account, engine, database},
     Authentication = [
         // We use id and secret, but for PBI it's renamed username password behind the scenes
         UsernamePassword = [
