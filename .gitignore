@@ -23,4 +23,3 @@ package-lock.json
 
 # Ignore tests for now
 tests/Diagnostics/*
-tests/RunPQSDKTestSuitesSettings.json

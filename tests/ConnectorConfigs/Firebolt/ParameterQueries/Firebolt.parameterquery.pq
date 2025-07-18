@@ -1,5 +1,5 @@
 let
-    ASource = Firebolt.Contents("developer", "petro_test", "petro_test_pbi"),
+    ASource = Firebolt.Contents("{{ACCOUNT}}", "{{ENGINE}}", "{{DATABASE}}"),
     Source = ASource{[Name="public"]}[Data],
     NycTaxiGreen_Table = Source{[Name="NycTaxiGreen"]}[Data],
     TaxiZoneLookup_Table = Source{[Name="TaxiZoneLookup"]}[Data]
