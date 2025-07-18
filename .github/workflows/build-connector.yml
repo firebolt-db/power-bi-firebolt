@@ -28,5 +28,4 @@ jobs:
         run: |
           echo "## Build Summary" >> $env:GITHUB_STEP_SUMMARY
           echo "✅ Power BI Connector built successfully" >> $env:GITHUB_STEP_SUMMARY
-          echo "📦 Artifact uploaded: firebolt-connector-${{ github.sha }}" >> $env:GITHUB_STEP_SUMMARY
-          echo "🔗 Commit SHA: ${{ github.sha }}" >> $env:GITHUB_STEP_SUMMARY
+          echo "📦 Artifact uploaded: firebolt-connector" >> $env:GITHUB_STEP_SUMMARY
