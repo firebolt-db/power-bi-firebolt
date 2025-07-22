@@ -1,4 +1,4 @@
-name: Power BI Connector Setup
+name: Power BI Integration Tests
 
 on:
   workflow_dispatch:
