@@ -1,0 +1,37 @@
+name: 'Build Power BI Connector'
+description: 'Compiles the Power BI connector and uploads it as an artifact'
+inputs:
+  sdk-path:
+    description: 'Path to the PowerQuery SDK directory'
+    required: true
+  working-directory:
+    description: 'Working directory where the connector project is located'
+    required: false
+    default: '.'
+  artifact-name:
+    description: 'Name for the uploaded artifact'
+    required: false
+    default: 'firebolt-connector'
+outputs:
+  connector-path:
+    description: 'Path to the compiled connector file'
+    value: ${{ steps.compile.outputs.connector-path }}
+  artifact-name:
+    description: 'Name of the uploaded artifact'
+    value: ${{ inputs.artifact-name }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Compile Power BI Connector
+      id: compile
+      shell: powershell
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        . "$PWD/scripts/compile-connector.ps1" "${{ inputs.sdk-path }}"
+
+    - name: Upload Connector Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.working-directory }}/Firebolt.mez
+        retention-days: 30

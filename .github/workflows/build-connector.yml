@@ -13,3 +13,21 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Download PowerQuery SDK
+        id: download-sdk
+        shell: powershell
+        run: |
+          & .\scripts\download-powerquery-sdk.ps1 nuget_packages
+
+      - name: Build and Upload Connector
+        uses: ./.github/actions/build-connector
+        with:
+          sdk-path: ${{ steps.download-sdk.outputs.sdk-path }}
+          artifact-name: firebolt-connector
+
+      - name: Build Summary
+        run: |
+          echo "## Build Summary" >> $env:GITHUB_STEP_SUMMARY
+          echo "✅ Power BI Connector built successfully" >> $env:GITHUB_STEP_SUMMARY
+          echo "📦 Artifact uploaded: firebolt-connector" >> $env:GITHUB_STEP_SUMMARY
