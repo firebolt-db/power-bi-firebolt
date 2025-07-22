@@ -1,3 +1,13 @@
+<#
+.SYNOPSIS
+    Downloads and extracts the PowerQuery SDK NuGet package.
+.DESCRIPTION
+    This script downloads the latest version of the Microsoft.PowerQuery.SdkTools NuGet package and extracts its contents.
+    It locates the PQTest.exe tool and ensures all dependencies are available.
+.PARAMETER outputDir
+    The directory where the NuGet package will be extracted.
+#>
+
 # PowerShell script to download and extract the PowerQuery SDK NuGet package
 
 $nugetPath = "$env:TEMP\nuget.exe"

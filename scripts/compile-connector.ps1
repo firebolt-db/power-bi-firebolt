@@ -1,3 +1,12 @@
+<#
+.SYNOPSIS
+    Compiles the Power BI Connector using the PowerQuery SDK.
+.DESCRIPTION
+    This script locates the MakePQX.exe tool within the provided SDK path and uses it to compile the Power BI Connector project.
+    The compiled .mez file is then copied to the current directory.
+.PARAMETER sdkPath
+    The path to the PowerQuery SDK tools directory. This is passed as the first argument to the script.
+#>
 param(
     [string]$sdkPath = $args[0]
 )
