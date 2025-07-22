@@ -18,9 +18,7 @@ jobs:
         id: download-sdk
         shell: powershell
         run: |
-          $scriptPath = "${{ github.workspace }}\scripts\download-powerquery-sdk.ps1"
-          $outputDir = "${{ github.workspace }}\nuget_packages"
-          & $scriptPath $outputDir
+          & .\scripts\download-powerquery-sdk.ps1 nuget_packages
 
       - name: Build and Upload Connector
         uses: ./.github/actions/build-connector
