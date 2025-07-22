@@ -33,9 +33,7 @@ jobs:
         id: setup-sdk
         shell: powershell
         run: |
-          $scriptPath = "${{ github.workspace }}\scripts\download-powerquery-sdk.ps1"
-          $outputDir = "${{ github.workspace }}\nuget_packages"
-          & $scriptPath $outputDir
+          & .\scripts\download-powerquery-sdk.ps1 nuget_packages
 
       - name: Build Connector
         id: build
@@ -74,7 +72,9 @@ jobs:
 
       - name: Setup PowerQuery SDK
         id: setup-sdk
-        uses: ./.github/actions/download-powerquery-sdk
+        shell: powershell
+        run: |
+          & .\scripts\download-powerquery-sdk.ps1 nuget_packages
 
       - name: Download Connector Artifact
         uses: actions/download-artifact@v4
