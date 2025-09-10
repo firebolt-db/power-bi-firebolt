@@ -25,9 +25,10 @@ jobs:
         with:
           sdk-path: ${{ steps.download-sdk.outputs.sdk-path }}
           artifact-name: firebolt-connector
+          signing-certificate-base64: ${{ secrets.SIGNING_CERTIFICATE_BASE64 }}
+          signing-certificate-password: ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
 
       - name: Build Summary
         run: |
           echo "## Build Summary" >> $env:GITHUB_STEP_SUMMARY
           echo "✅ Power BI Connector built successfully" >> $env:GITHUB_STEP_SUMMARY
-          echo "📦 Artifact uploaded: firebolt-connector" >> $env:GITHUB_STEP_SUMMARY

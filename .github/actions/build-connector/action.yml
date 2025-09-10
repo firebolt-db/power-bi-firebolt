@@ -1,5 +1,5 @@
 name: 'Build Power BI Connector'
-description: 'Compiles the Power BI connector and uploads it as an artifact'
+description: 'Compiles the Power BI connector, optionally signs it, and uploads artifacts'
 inputs:
   sdk-path:
     description: 'Path to the PowerQuery SDK directory'
@@ -12,10 +12,19 @@ inputs:
     description: 'Name for the uploaded artifact'
     required: false
     default: 'firebolt-connector'
+  signing-certificate-base64:
+    description: 'Base64 encoded signing certificate (.pfx)'
+    required: false
+  signing-certificate-password:
+    description: 'Password for the signing certificate'
+    required: false
 outputs:
   connector-path:
     description: 'Path to the compiled connector file'
     value: ${{ steps.compile.outputs.connector-path }}
+  connector-path-signed:
+    description: 'Path to the signed connector file (if signed)'
+    value: ${{ steps.sign.outputs.connector-path-signed }}
   artifact-name:
     description: 'Name of the uploaded artifact'
     value: ${{ inputs.artifact-name }}
@@ -29,9 +38,25 @@ runs:
       run: |
         . "$PWD/scripts/compile-connector.ps1" "${{ inputs.sdk-path }}"
 
-    - name: Upload Connector Artifact
+    - name: Sign Power BI Connector
+      id: sign
+      if: ${{ inputs.signing-certificate-base64 != '' && inputs.signing-certificate-password != '' }}
+      shell: powershell
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        . "$PWD/scripts/sign-connector.ps1" -sdkPath "${{ inputs.sdk-path }}" -mezPath "${{ steps.compile.outputs.connector-path }}" -certificateBase64 "${{ inputs.signing-certificate-base64 }}" -certificatePassword "${{ inputs.signing-certificate-password }}"
+
+    - name: Upload Unsigned Connector
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ inputs.artifact-name }}
-        path: ${{ inputs.working-directory }}/Firebolt.mez
+        name: ${{ inputs.artifact-name }}-unsigned
+        path: ${{ steps.compile.outputs.connector-path }}
+        retention-days: 30
+
+    - name: Upload Signed Connector
+      if: ${{ inputs.signing-certificate-base64 != '' && inputs.signing-certificate-password != '' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}-signed
+        path: ${{ steps.sign.outputs.connector-path-signed }}
         retention-days: 30
