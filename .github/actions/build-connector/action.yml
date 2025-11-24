@@ -26,7 +26,7 @@ outputs:
     description: 'Path to the signed connector file (if signed)'
     value: ${{ steps.sign.outputs.connector-path-signed }}
   artifact-name:
-    description: 'Name of the uploaded artifact'
+    description: 'Base name of the uploaded artifact. The actual artifact will be this {name}-signed or {name}-unsigned'
     value: ${{ inputs.artifact-name }}
 runs:
   using: 'composite'

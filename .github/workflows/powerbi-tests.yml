@@ -79,7 +79,7 @@ jobs:
       - name: Download Connector Artifact
         uses: actions/download-artifact@v4
         with:
-          name: ${{ needs.build.outputs.artifact-name }}
+          name: ${{ needs.build.outputs.artifact-name }}-unsigned
           path: .
 
       - name: Set Common Paths
@@ -176,7 +176,7 @@ jobs:
           $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
           $outputFile = "test-results-$timestamp.txt"
           $output | Out-File -FilePath $outputFile -Encoding UTF8
-          
+
           # Save the output filename for the next step
           echo "output-file=$outputFile" >> $env:GITHUB_OUTPUT
 
@@ -203,12 +203,12 @@ jobs:
           if ($tableStartIndex -gt -1) {
             $stepSummary += "## PowerQuery SDK Test Results`n`n"
             $stepSummary += "``````text`n"
-            
+
             # Add everything from the table header onwards
             for ($i = $tableStartIndex; $i -lt $lines.Count; $i++) {
               $stepSummary += $lines[$i] + "`n"
             }
-            
+
             $stepSummary += "``````"
           } else {
             $stepSummary += "## PowerQuery SDK Test Results`n`n"
